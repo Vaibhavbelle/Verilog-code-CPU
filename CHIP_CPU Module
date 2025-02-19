@@ -1,0 +1,58 @@
+module CHIP_CPU (
+    input [15:0] inM,
+    input [15:0] instruction,
+    input reset,
+    output [15:0] outM,
+    output writeM,
+    output [14:0] addressM,
+    output [14:0] pc
+);
+
+    wire AIns, CIns, ALUtoA, loadA, loadD, writeM, jEQ, jLT, jGT, PCload, PCinc;
+    wire [15:0] Aregin, Aout, AMout, Dout, ALUout;
+    wire ZRout, NGout;
+
+    // Logic Gates
+    assign AIns = ~instruction[15];
+    assign CIns = ~AIns;
+    assign ALUtoA = CIns & instruction[5];
+    assign loadA = AIns | ALUtoA;
+    assign loadD = CIns & instruction[4];
+    assign writeM = CIns & instruction[3];
+
+    // ALU
+    ALU alu (
+        .x(Dout),
+        .y(AMout),
+        .zx(instruction[11]),
+        .nx(instruction[10]),
+        .zy(instruction[9]),
+        .ny(instruction[8]),
+        .f(instruction[7]),
+        .no(instruction[6]),
+        .out(ALUout),
+        .zr(ZRout),
+        .ng(NGout)
+    );
+
+    // Program Counter
+    PC pc_module (
+        .in(Aout),
+        .inc(PCinc),
+        .load(PCload),
+        .reset(reset),
+        .out(pc)
+    );
+
+    // Additional logic for jumps
+    assign jEQ = ZRout & instruction[1];
+    assign jLT = NGout & instruction[2];
+    assign jGT = ~(ZRout | NGout) & instruction[0];
+    assign PCload = CIns & (jEQ | jLT | jGT);
+    assign PCinc = ~PCload;
+
+    // Outputs
+    assign outM = ALUout;
+    assign addressM = Aout[14:0];
+
+endmodule
